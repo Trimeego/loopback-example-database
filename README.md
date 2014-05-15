@@ -2,10 +2,11 @@
 
 This project contains examples to demonstrate LoopBack connectors for databases:
 
-- [LoopBack PostgreSQL connector](https://github.com/strongloop/loopback-connector-postgresql)
 - [LoopBack MongoDB connector](https://github.com/strongloop/loopback-connector-mongodb)
+- [LoopBack MySQL connector](https://github.com/strongloop/loopback-connector-mysql)
 - [LoopBack Oracle connector](https://github.com/strongloop/loopback-connector-oracle)
-- [LoopBack PostgreSQL connector](https://github.com/strongloop/loopback-connector-postgresql)
+- [LoopBack PostgreSQL connector](https://github.com/strongloop/loopback-connector-mongodb)
+- [LoopBack MSSQL connector](https://github.com/strongloop/loopback-connector-mssql)
 
 You can pretty much switch between the databases by updating datasources.json and models.json.
 No code change is required. In the following steps, we'll use postgresql as the example.
@@ -24,11 +25,11 @@ First, make sure you have strong-cli installed.
     npm install -g strong-cli
 ```
 
-Next, you need a running PostgreSQL server. In this article, you'll connect to an instance running on demo.strongloop.com.
+Next, you need a running MongoDB server. In this article, you'll connect to an instance running on demo.strongloop.com.
 
 ## Create the LoopBack application
 
-To demonstrate how to use PostgreSQL connector for LoopBack, we'll create a simple application from scratch using the `slc`
+To demonstrate how to use MongoDB connector for LoopBack, we'll create a simple application from scratch using the `slc`
 command:
 
 ```sh
@@ -50,15 +51,15 @@ The properties will be saved to models.json.
 
 ## Install dependencies
 
-Let's add the `loopback-connector-postgresql` module and install the dependencies.
+Let's add the `loopback-connector-mongodb` module and install the dependencies.
 
 ```sh
-    npm install loopback-connector-postgresql --save
+    npm install loopback-connector-mongodb --save
 ```
 
 ## Configure the data source
 
-The generated data source use the memory connector by default, to connect to PostgreSQL, we'll modify the data source
+The generated data source use the memory connector by default, to connect to MongoDB, we'll modify the data source
 configuration as follows.
 
 ```sh
@@ -67,23 +68,23 @@ configuration as follows.
 
 **Note: Future releases will probably generate a config.json file for the data source configuration.**
 
-In datasoures.json, replace the data source configuration for postgresql with the following snippet:
+In datasoures.json, replace the data source configuration for mongodb with the following snippet:
 
 ```javascript
-    "accountDB": {
-    "connector": "postgresql",
+  "accountDB": {
+    "connector": "mongodb",
     "host": "demo.strongloop.com",
-    "port": 5432,
     "database": "demo",
     "username": "demo",
-    "password": "L00pBack"
+    "password": "L00pBack",
+    "port": 27017
   }
 ```
 
-## Create the table and add test data
+## Create the collection and add test data
 
 Now we have an `account` model in LoopBack, do we need to run some SQL statements to create the corresponding table in
-PostgreSQL database?
+MongoDB database?
 
 Sure, but even simpler, LoopBack provides Node.js APIs to do so automatically. The code is `create-test-data.js`.
 
@@ -94,22 +95,20 @@ Sure, but even simpler, LoopBack provides Node.js APIs to do so automatically. T
 Let's look at the code:
 
 ```javascript
-    dataSource.automigrate('account', function (err) {
       accounts.forEach(function(act) {
         Account.create(act, function(err, result) {
           if(!err) {
             console.log('Record created:', result);
           }
         });
-      });
     });
 ```
 
-`dataSource.automigrate()` creates or recreates the table in PostgreSQL based on the model definition for `account`. Please
+`dataSource.automigrate()` creates or recreates the table in MongoDB based on the model definition for `account`. Please
 note **the call will drop the table if it exists and your data will be lost**. We can use `dataSource.autoupdate()` instead
 to keep the existing data.
 
-`Account.create()` inserts two sample records to the PostgreSQL table.
+`Account.create()` inserts two sample records to the MongoDB table.
 
    
 ## Run the application
@@ -157,101 +156,7 @@ All the REST APIs can be explored at:
 
     http://127.0.0.1:3000/explorer
 
- 
-## Try the discovery
-
-Now we have the `account` table existing in PostgreSQL, we can try to discover the LoopBack model from the database. Let's
-run the following example:
-
-```sh
-    node discover
-```
-
-First, we'll see the model definition for `account` in JSON format.
-
-```json
-    {
-      "name": "Account",
-      "options": {
-        "idInjection": false,
-        "postgresql": {
-          "schema": "public",
-          "table": "account"
-        }
-      },
-      "properties": {
-        "email": {
-          "type": "String",
-          "required": false,
-          "length": 1073741824,
-          "precision": null,
-          "scale": null,
-          "postgresql": {
-            "columnName": "email",
-            "dataType": "character varying",
-            "dataLength": 1073741824,
-            "dataPrecision": null,
-            "dataScale": null,
-            "nullable": "YES"
-          }
-        },
-        ...,
-        "id": {
-          "type": "Number",
-          "required": false,
-          "length": null,
-          "precision": 32,
-          "scale": 0,
-          "postgresql": {
-            "columnName": "id",
-            "dataType": "integer",
-            "dataLength": null,
-            "dataPrecision": 32,
-            "dataScale": 0,
-            "nullable": "NO"
-          }
-        }
-      }
-    }
-
-```
-
-Then we use the model to find all accounts from PostgreSQL:
-
-```json
-[ { id: 1,
-    email: 'foo@bar.com',
-    level: 10,
-    created: Tue Oct 15 2013 14:34:50 GMT-0700 (PDT),
-    modified: Tue Oct 15 2013 14:34:50 GMT-0700 (PDT) },
-  { id: 2,
-    email: 'bar@bar.com',
-    level: 20,
-    created: Tue Oct 15 2013 14:34:50 GMT-0700 (PDT),
-    modified: Tue Oct 15 2013 14:34:50 GMT-0700 (PDT) } ]
-```
-
-Let's examine the code in discover.js too. It's surprisingly simple! The `dataSource.discoverSchema()` method returns the
-model definition based on the `account` table schema. `dataSource.discoverAndBuildModels()` goes one step further by making
-the model classes available to perform CRUD operations.
-
-```javascript
-    dataSource.discoverSchema('account', {schema: 'public'}, function (err, schema) {
-        console.log(JSON.stringify(schema, null, '  '));
-    });
-
-    dataSource.discoverAndBuildModels('account', {schema: 'public'}, function (err, models) {
-        models.Account.find(function (err, act) {
-            if (err) {
-                console.error(err);
-            } else {
-                console.log(act);
-            }
-        });
-    });
-```
-
-As you have seen, the PostgreSQL connector for LoopBack enables applications to work with data in PostgreSQL databases. 
+As you have seen, the MongoDB connector for LoopBack enables applications to work with data in MongoDB databases.
 It can be new data generated by mobile devices that need to be persisted, or existing data that need to be shared
 between mobile clients and other backend applications.  No matter where you start, LoopBack makes it easy to handle 
-your data with PostgreSQL. It’s great to have PostgreSQL in the Loop!
+your data with MongoDB. It’s great to have MongoDB in the Loop!
